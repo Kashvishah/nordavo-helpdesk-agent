@@ -1,0 +1,10 @@
+.env
+logs/
+*.state
+*.state.*
+local_state/
+state/
+__pycache__/
+*.py[cod]
+tickets_view.txt
+candidate_pack/

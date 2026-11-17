@@ -2,11 +2,11 @@
 
 import argparse
 import json
-import urllib.error
 import urllib.parse
 import urllib.request
 
 from config import load_config
+from http_json import get_json
 from triage import triage_ticket
 
 
@@ -21,13 +21,7 @@ def fetch_ticket(config: dict[str, str], ticket_id: str) -> dict:
             "Accept": "application/json",
         },
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.load(response)
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"Helpdesk returned HTTP {error.code}.") from None
-    except urllib.error.URLError:
-        raise RuntimeError("Could not reach the helpdesk API.") from None
+    payload = get_json(request, service="Helpdesk")
 
     if not isinstance(payload, dict):
         raise RuntimeError("Helpdesk returned an unexpected ticket format.")

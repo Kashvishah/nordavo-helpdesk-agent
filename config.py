@@ -1,6 +1,7 @@
 """Load required settings from environment variables and a local .env file."""
 
 import os
+import math
 from pathlib import Path
 
 
@@ -11,6 +12,7 @@ REQUIRED_SETTINGS = (
     "OPENAI_API_KEY",
 )
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
+DEFAULT_MAX_RUN_COST_EUR = "0.5"
 
 
 def _load_local_env() -> None:
@@ -43,4 +45,12 @@ def load_config() -> dict[str, str]:
         )
     config = {name: os.environ[name] for name in REQUIRED_SETTINGS}
     config["OPENAI_MODEL"] = os.environ.get("OPENAI_MODEL", "").strip() or DEFAULT_OPENAI_MODEL
+    max_cost = os.environ.get("MAX_RUN_COST_EUR", "").strip() or DEFAULT_MAX_RUN_COST_EUR
+    try:
+        parsed_cost = float(max_cost)
+        if not math.isfinite(parsed_cost) or parsed_cost < 0:
+            raise ValueError
+    except ValueError:
+        raise RuntimeError("MAX_RUN_COST_EUR must be a non-negative number.") from None
+    config["MAX_RUN_COST_EUR"] = max_cost
     return config

@@ -1,13 +1,13 @@
 """Compare triage decisions with the labelled examples (read-only helpdesk access)."""
 
 import json
-import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from config import load_config
+from http_json import get_json
 from triage import triage_ticket
 
 
@@ -33,13 +33,7 @@ def fetch_examples(config: dict[str, str]) -> list[dict[str, Any]]:
             "Accept": "application/json",
         },
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.load(response)
-    except urllib.error.HTTPError as error:
-        raise RuntimeError(f"GET /examples failed with HTTP {error.code}.") from None
-    except urllib.error.URLError:
-        raise RuntimeError("Could not reach the examples endpoint.") from None
+    payload = get_json(request, service="Helpdesk GET /examples")
 
     if isinstance(payload, list):
         examples = payload

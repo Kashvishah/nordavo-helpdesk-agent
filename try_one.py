@@ -36,6 +36,11 @@ def fetch_ticket(config: dict[str, str], ticket_id: str) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Triage selected helpdesk tickets.")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print the masked system prompt, model name, and raw model JSON.",
+    )
     parser.add_argument("ticket_ids", nargs="+", help="Ticket IDs, such as T007 T012")
     args = parser.parse_args()
 
@@ -55,7 +60,7 @@ def main() -> None:
             continue
 
         try:
-            result = triage_ticket(ticket)
+            result = triage_ticket(ticket, debug=args.debug)
         except Exception:
             # Do not print SDK exception details, which may contain request data.
             print("Triage failed because the model call did not complete; continuing.\n")

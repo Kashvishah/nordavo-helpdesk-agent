@@ -10,6 +10,7 @@ REQUIRED_SETTINGS = (
     "CANDIDATE_EMAIL",
     "OPENAI_API_KEY",
 )
+DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 
 
 def _load_local_env() -> None:
@@ -40,4 +41,6 @@ def load_config() -> dict[str, str]:
             f"Missing required environment setting(s): {names}. "
             "Set them in your local .env file or environment."
         )
-    return {name: os.environ[name] for name in REQUIRED_SETTINGS}
+    config = {name: os.environ[name] for name in REQUIRED_SETTINGS}
+    config["OPENAI_MODEL"] = os.environ.get("OPENAI_MODEL", "").strip() or DEFAULT_OPENAI_MODEL
+    return config

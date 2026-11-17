@@ -110,9 +110,12 @@ reply_en to empty strings. Write reason as one sentence in English. For reply_en
 provide an accurate English translation of the reply, or an empty string when
 reply is empty.
 
+Also return language as nl, en, or de; category as bug, billing,
+feature_request, question, or other; and priority as P1, P2, P3, or P4.
+
 Return only a JSON object with exactly these fields: decision (string), reason
 (string), reply (string), reply_en (string), faq_id (string), faq_quote (string),
-suspicious (boolean).
+language (string), category (string), priority (string), suspicious (boolean).
 
 FAQ:
 """
@@ -255,6 +258,9 @@ def triage_ticket(ticket: dict[str, Any], debug: bool = False) -> dict[str, Any]
         "reply_en",
         "faq_id",
         "faq_quote",
+        "language",
+        "category",
+        "priority",
     }
     expected_fields = string_fields | {"suspicious"}
     if (
@@ -266,6 +272,18 @@ def triage_ticket(ticket: dict[str, Any], debug: bool = False) -> dict[str, Any]
         raise ValueError("The model returned an invalid triage JSON object.")
     if result["decision"] not in {"answer", "escalate", "ignore"}:
         raise ValueError("The model returned an unsupported triage decision.")
+    if result["language"] not in {"nl", "en", "de"}:
+        raise ValueError("The model returned an unsupported language.")
+    if result["category"] not in {
+        "bug",
+        "billing",
+        "feature_request",
+        "question",
+        "other",
+    }:
+        raise ValueError("The model returned an unsupported category.")
+    if result["priority"] not in {"P1", "P2", "P3", "P4"}:
+        raise ValueError("The model returned an unsupported priority.")
     faq_ids = set(re.findall(r"^## (F\d{2})\b", faq, flags=re.MULTILINE))
     if result["faq_id"] != "none" and result["faq_id"] not in faq_ids:
         raise ValueError("The model returned an unknown FAQ entry ID.")

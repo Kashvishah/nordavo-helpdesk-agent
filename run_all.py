@@ -2,13 +2,17 @@
 
 import argparse
 import json
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from config import load_config
 from fetch_tickets import fetch_open_tickets
+from http_json import HTTPCallError, request_json
 from triage import RunCostLimitExceeded, reset_run_cost_estimate, triage_ticket
+from try_one import fetch_ticket
 
 
 LOG_PATH = Path(__file__).resolve().parent / "logs" / "run.jsonl"
@@ -63,15 +67,57 @@ def _save_handled_ids(ticket_ids: set[str]) -> None:
     temporary_path.replace(STATE_PATH)
 
 
-def _skip_record(ticket_id: Any, reason: str) -> dict[str, Any]:
+def _skip_record(ticket_id: Any, reason: str, mode: str) -> dict[str, Any]:
     return {
         "ticket_id": ticket_id,
         "status": "skipped",
+        "mode": mode,
         "decision": None,
         "reason": reason,
         "suspicious": None,
         "timestamp": _timestamp(),
     }
+
+
+def _send_live_action(
+    config: dict[str, str], ticket_id: str, result: dict[str, Any]
+) -> str:
+    decision = result["decision"]
+    action_for_decision = {
+        "answer": "reply",
+        "escalate": "handoff",
+        "ignore": "close",
+    }
+    action = action_for_decision[decision]
+    payload: dict[str, Any] = {
+        "language": result["language"],
+        "category": result["category"],
+        "priority": result["priority"],
+        "reason": result["reason"],
+    }
+    if decision == "answer":
+        payload["draft_reply"] = result["reply"]
+    elif decision == "escalate":
+        payload["handoff_note"] = result["reason"]
+
+    encoded_id = urllib.parse.quote(ticket_id, safe="")
+    url = (
+        f"{config['HELPDESK_API_URL'].rstrip('/')}/tickets/"
+        f"{encoded_id}/{action}"
+    )
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config['HELPDESK_API_KEY']}",
+            "X-Candidate-Email": config["CANDIDATE_EMAIL"],
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    request_json(request, service=f"Helpdesk POST /tickets/{action}")
+    return action
 
 
 def _print_suspicious_table(rows: list[tuple[str, str, str]]) -> None:
@@ -106,6 +152,16 @@ def main() -> None:
         action="store_true",
         help="Process tickets already listed in local state.",
     )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Send the decisions to the helpdesk; default is a dry run.",
+    )
+    parser.add_argument(
+        "--only",
+        metavar="TICKET_ID",
+        help="Process only this ticket ID.",
+    )
     args = parser.parse_args()
 
     config = load_config()
@@ -124,13 +180,32 @@ def main() -> None:
         print(f"Could not read local ticket state: {_safe_error(error, config)}")
         return
 
+    if args.only and not args.force and args.only in handled_ids:
+        counts["skipped"] += 1
+        _append_record(
+            _skip_record(
+                args.only,
+                "Already processed in an earlier run.",
+                "live" if args.live else "dry-run",
+            ),
+            config,
+        )
+        mode = "Live" if args.live else "Dry run"
+        print(f"{mode} summary: answer 0, escalate 0, suspicious 0, errors 0, skipped 1")
+        return
+
     try:
-        tickets = fetch_open_tickets(config)
+        if args.only:
+            tickets = [fetch_ticket(config, args.only)]
+        else:
+            tickets = fetch_open_tickets(config)
     except Exception as error:
         counts["errors"] += 1
         _append_record(
             {
-                "ticket_id": None,
+                "ticket_id": args.only,
+                "status": "error",
+                "mode": "live" if args.live else "dry-run",
                 "decision": None,
                 "reason": None,
                 "suspicious": None,
@@ -139,8 +214,10 @@ def main() -> None:
             },
             config,
         )
-        print("Dry run summary: answer 0, escalate 0, suspicious 0, errors 1")
-        _print_suspicious_table(suspicious_rows)
+        print(
+            f"Run summary: answer 0, escalate 0, suspicious 0, "
+            f"errors {counts['errors']}, skipped 0"
+        )
         return
 
     for index, ticket in enumerate(tickets):
@@ -149,11 +226,16 @@ def main() -> None:
         if not args.force and state_id in handled_ids:
             counts["skipped"] += 1
             _append_record(
-                _skip_record(ticket_id, "Already processed in an earlier run."),
+                _skip_record(
+                    ticket_id,
+                    "Already processed in an earlier run.",
+                    "live" if args.live else "dry-run",
+                ),
                 config,
             )
             continue
 
+        result = None
         try:
             result = triage_ticket(ticket)
             decision = result["decision"]
@@ -169,16 +251,43 @@ def main() -> None:
             record = {
                 "ticket_id": ticket_id,
                 "status": "processed",
+                "mode": "live" if args.live else "dry-run",
                 "decision": decision,
                 "reason": result["reason"],
                 "suspicious": suspicious,
                 "timestamp": _timestamp(),
             }
+            if args.live:
+                action = _send_live_action(config, str(ticket_id), result)
+                record["action"] = action
+                record["action_result"] = "sent"
+        except HTTPCallError as error:
+            counts["errors"] += 1
+            was_already_handled = error.status_code == 409
+            record = {
+                "ticket_id": ticket_id,
+                "status": "already_handled" if was_already_handled else "error",
+                "mode": "live" if args.live else "dry-run",
+                "decision": result.get("decision") if result is not None else None,
+                "reason": result.get("reason") if result is not None else None,
+                "suspicious": result.get("suspicious") if result is not None else None,
+                "timestamp": _timestamp(),
+                "error": _safe_error(error, config),
+            }
+            if args.live and result is not None:
+                record["action"] = {
+                    "answer": "reply",
+                    "escalate": "handoff",
+                    "ignore": "close",
+                }.get(result["decision"])
+            if was_already_handled and state_id is not None:
+                record["action_result"] = "already handled by helpdesk"
         except RunCostLimitExceeded as error:
             counts["errors"] += 1
             record = {
                 "ticket_id": ticket_id,
                 "status": "error",
+                "mode": "live" if args.live else "dry-run",
                 "decision": None,
                 "reason": None,
                 "suspicious": None,
@@ -197,6 +306,7 @@ def main() -> None:
                     _skip_record(
                         remaining_id,
                         skip_reason,
+                        "live" if args.live else "dry-run",
                     ),
                     config,
                 )
@@ -206,19 +316,20 @@ def main() -> None:
             record = {
                 "ticket_id": ticket_id,
                 "status": "error",
-                "decision": None,
-                "reason": None,
-                "suspicious": None,
+                "mode": "live" if args.live else "dry-run",
+                "decision": result.get("decision") if result is not None else None,
+                "reason": result.get("reason") if result is not None else None,
+                "suspicious": result.get("suspicious") if result is not None else None,
                 "timestamp": _timestamp(),
                 "error": _safe_error(error, config),
             }
         _append_record(record, config)
-        if record["status"] == "processed" and state_id is not None:
+        if record["status"] in {"processed", "already_handled"} and state_id is not None:
             handled_ids.add(state_id)
             _save_handled_ids(handled_ids)
 
     print(
-        "Dry run summary: "
+        f"{'Live' if args.live else 'Dry run'} summary: "
         f"answer {counts['answer']}, escalate {counts['escalate']}, "
         f"suspicious {counts['suspicious']}, errors {counts['errors']}, "
         f"skipped {counts['skipped']}"

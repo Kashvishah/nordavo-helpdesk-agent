@@ -11,6 +11,12 @@ from typing import Any
 MAX_RETRIES = 3
 
 
+class HTTPCallError(RuntimeError):
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def _is_timeout(error: urllib.error.URLError) -> bool:
     return isinstance(error.reason, (TimeoutError, socket.timeout))
 
@@ -22,7 +28,7 @@ def _redact(message: str, request: urllib.request.Request) -> str:
     return message
 
 
-def get_json(
+def request_json(
     request: urllib.request.Request,
     *,
     service: str,
@@ -32,7 +38,8 @@ def get_json(
     while True:
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                return json.load(response)
+                body = response.read()
+                return json.loads(body) if body else {}
         except urllib.error.HTTPError as error:
             temporary = error.code == 429 or 500 <= error.code <= 599
             if temporary and retries < MAX_RETRIES:
@@ -48,9 +55,10 @@ def get_json(
             body = error.read(200).decode("utf-8", errors="replace")
             body = _redact(body, request)
             suffix = f" after {retries} retries" if temporary else ""
-            raise RuntimeError(
+            raise HTTPCallError(
+                error.code,
                 f"{service} HTTP {error.code}{suffix}; "
-                f"response body (first 200 characters): {body}"
+                f"response body (first 200 characters): {body}",
             ) from None
         except urllib.error.URLError as error:
             if _is_timeout(error) and retries < MAX_RETRIES:
@@ -69,3 +77,12 @@ def get_json(
             raise RuntimeError(
                 f"{service} timed out after {retries} retries."
             ) from None
+
+
+def get_json(
+    request: urllib.request.Request,
+    *,
+    service: str,
+    timeout: float = 30,
+) -> Any:
+    return request_json(request, service=service, timeout=timeout)

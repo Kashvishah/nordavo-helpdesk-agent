@@ -26,6 +26,12 @@ class RunCostLimitExceeded(RuntimeError):
     """Raised before a model call would exceed the configured run budget."""
 
 
+class TriageResult(dict[str, Any]):
+    def __init__(self, values: dict[str, Any], status: str = "processed") -> None:
+        super().__init__(values)
+        self.status = status
+
+
 def reset_run_cost_estimate() -> None:
     global _RUN_ESTIMATED_COST_EUR
     _RUN_ESTIMATED_COST_EUR = 0.0
@@ -60,6 +66,58 @@ def _estimate_usage_cost(usage: Any, model_name: str, fallback: float) -> float:
     return (
         usage.prompt_tokens * input_price + usage.completion_tokens * output_price
     ) / 1_000_000 * 1.1
+
+
+def _validate_model_output(content: str | None, faq: str) -> dict[str, Any]:
+    if not content:
+        raise ValueError("The model returned an empty triage result.")
+    try:
+        result = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        raise ValueError("The model returned invalid JSON.") from None
+
+    string_fields = {
+        "decision",
+        "reason",
+        "reply",
+        "reply_en",
+        "faq_id",
+        "faq_quote",
+        "language",
+        "category",
+        "priority",
+    }
+    expected_fields = string_fields | {"suspicious"}
+    if (
+        not isinstance(result, dict)
+        or set(result) != expected_fields
+        or not all(isinstance(result[field], str) for field in string_fields)
+        or not isinstance(result["suspicious"], bool)
+    ):
+        raise ValueError("The model returned missing or invalid fields.")
+    if result["decision"] not in {"answer", "escalate", "ignore"}:
+        raise ValueError("The model returned an unsupported decision.")
+    if result["language"] not in {"nl", "en", "de"}:
+        raise ValueError("The model returned an unsupported language.")
+    if result["category"] not in {
+        "bug",
+        "billing",
+        "feature_request",
+        "question",
+        "other",
+    }:
+        raise ValueError("The model returned an unsupported category.")
+    if result["priority"] not in {"P1", "P2", "P3", "P4"}:
+        raise ValueError("The model returned an unsupported priority.")
+
+    faq_ids = set(re.findall(r"^## (F\d{2})\b", faq, flags=re.MULTILINE))
+    if result["faq_id"] != "none" and result["faq_id"] not in faq_ids:
+        raise ValueError("The model returned an unknown FAQ entry ID.")
+    if result["faq_id"] != "none" and not result["faq_quote"].strip():
+        raise ValueError("The model did not quote the selected FAQ entry.")
+    if result["faq_id"] == "none" and result["faq_quote"]:
+        raise ValueError("The model quoted an FAQ entry while selecting none.")
+    return result
 
 _SYSTEM_PROMPT = """You triage customer support tickets for Roosterly.
 
@@ -177,13 +235,68 @@ def _redact_secrets(text: str, config: dict[str, str]) -> str:
     return text
 
 
-def triage_ticket(ticket: dict[str, Any], debug: bool = False) -> dict[str, Any]:
+def _validate_model_output(content: str | None, faq: str) -> dict[str, Any]:
+    if not content:
+        raise ValueError("The model returned an empty triage result.")
+    try:
+        result = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        raise ValueError("The model returned invalid JSON.") from None
+
+    string_fields = {
+        "decision",
+        "reason",
+        "reply",
+        "reply_en",
+        "faq_id",
+        "faq_quote",
+        "language",
+        "category",
+        "priority",
+    }
+    expected_fields = string_fields | {"suspicious"}
+    if (
+        not isinstance(result, dict)
+        or set(result) != expected_fields
+        or not all(isinstance(result[field], str) for field in string_fields)
+        or not isinstance(result["suspicious"], bool)
+    ):
+        raise ValueError("The model returned missing or invalid fields.")
+    if result["decision"] not in {"answer", "escalate", "ignore"}:
+        raise ValueError("The model returned an unsupported decision.")
+    if result["language"] not in {"nl", "en", "de"}:
+        raise ValueError("The model returned an unsupported language.")
+    if result["category"] not in {
+        "bug",
+        "billing",
+        "feature_request",
+        "question",
+        "other",
+    }:
+        raise ValueError("The model returned an unsupported category.")
+    if result["priority"] not in {"P1", "P2", "P3", "P4"}:
+        raise ValueError("The model returned an unsupported priority.")
+
+    faq_ids = set(re.findall(r"^## (F\d{2})\b", faq, flags=re.MULTILINE))
+    if result["faq_id"] != "none" and result["faq_id"] not in faq_ids:
+        raise ValueError("The model returned an unknown FAQ entry ID.")
+    if result["faq_id"] != "none" and not result["faq_quote"].strip():
+        raise ValueError("The model did not quote the selected FAQ entry.")
+    if result["faq_id"] == "none" and result["faq_quote"]:
+        raise ValueError("The model quoted an FAQ entry while selecting none.")
+    return result
+
+
+def triage_ticket(
+    ticket: dict[str, Any],
+    debug: bool = False,
+    _validation_attempt: int = 0,
+) -> dict[str, Any]:
     """Return a structured decision, English reason, and Dutch/English reply."""
     config = load_config()
     faq = _FAQ_PATH.read_text(encoding="utf-8")
     formatted_faq = _format_faq(faq)
     model_name = config["OPENAI_MODEL"]
-    client = OpenAI(api_key=config["OPENAI_API_KEY"])
 
     ticket_data = json.dumps(ticket, ensure_ascii=False, separators=(",", ":"))
     system_prompt = f"{_SYSTEM_PROMPT}{formatted_faq}"
@@ -245,12 +358,38 @@ def triage_ticket(ticket: dict[str, Any], debug: bool = False) -> dict[str, Any]
         raise RuntimeError("OpenAI request ended without a response.")
 
     content = response.choices[0].message.content
-    if not content:
-        raise ValueError("The model returned an empty triage result.")
     if debug:
         print("=== Raw model JSON (before code post-processing) ===")
-        print(_redact_secrets(content, config))
-    result = json.loads(content)
+        print(_redact_secrets(content or "", config))
+    try:
+        result = _validate_model_output(content, faq)
+    except ValueError as error:
+        if debug:
+            print(
+                f"Invalid model output ({error}); "
+                f"validation attempt {_validation_attempt + 1} of 3."
+            )
+        if _validation_attempt < 2:
+            return triage_ticket(
+                ticket,
+                debug=debug,
+                _validation_attempt=_validation_attempt + 1,
+            )
+        return TriageResult(
+            {
+                "decision": "escalate",
+                "reason": "Model output invalid after retries; handing off to a human.",
+                "reply": "",
+                "reply_en": "",
+                "faq_id": "none",
+                "faq_quote": "",
+                "language": "nl",
+                "category": "other",
+                "priority": "P2",
+                "suspicious": False,
+            },
+            status="fallback",
+        )
     string_fields = {
         "decision",
         "reason",

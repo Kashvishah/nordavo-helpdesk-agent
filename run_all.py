@@ -172,6 +172,7 @@ def main() -> None:
         "suspicious": 0,
         "errors": 0,
         "skipped": 0,
+        "fallback": 0,
     }
     suspicious_rows: list[tuple[str, str, str]] = []
     try:
@@ -236,10 +237,14 @@ def main() -> None:
             continue
 
         result = None
+        triage_status = None
         try:
             result = triage_ticket(ticket)
+            triage_status = getattr(result, "status", "processed")
             decision = result["decision"]
             suspicious = result["suspicious"]
+            if triage_status == "fallback":
+                counts["fallback"] += 1
             if decision in counts:
                 counts[decision] += 1
             if suspicious:
@@ -250,7 +255,7 @@ def main() -> None:
                 )
             record = {
                 "ticket_id": ticket_id,
-                "status": "processed",
+                "status": triage_status,
                 "mode": "live" if args.live else "dry-run",
                 "decision": decision,
                 "reason": result["reason"],
@@ -266,7 +271,11 @@ def main() -> None:
             was_already_handled = error.status_code == 409
             record = {
                 "ticket_id": ticket_id,
-                "status": "already_handled" if was_already_handled else "error",
+                "status": (
+                    "fallback"
+                    if triage_status == "fallback"
+                    else "already_handled" if was_already_handled else "error"
+                ),
                 "mode": "live" if args.live else "dry-run",
                 "decision": result.get("decision") if result is not None else None,
                 "reason": result.get("reason") if result is not None else None,
@@ -280,6 +289,9 @@ def main() -> None:
                     "escalate": "handoff",
                     "ignore": "close",
                 }.get(result["decision"])
+                record["action_result"] = (
+                    "already handled by helpdesk" if was_already_handled else "failed"
+                )
             if was_already_handled and state_id is not None:
                 record["action_result"] = "already handled by helpdesk"
         except RunCostLimitExceeded as error:
@@ -315,7 +327,7 @@ def main() -> None:
             counts["errors"] += 1
             record = {
                 "ticket_id": ticket_id,
-                "status": "error",
+                "status": "fallback" if triage_status == "fallback" else "error",
                 "mode": "live" if args.live else "dry-run",
                 "decision": result.get("decision") if result is not None else None,
                 "reason": result.get("reason") if result is not None else None,
@@ -323,8 +335,16 @@ def main() -> None:
                 "timestamp": _timestamp(),
                 "error": _safe_error(error, config),
             }
+            if args.live and result is not None:
+                record["action_result"] = "failed"
         _append_record(record, config)
-        if record["status"] in {"processed", "already_handled"} and state_id is not None:
+        completed_fallback = record["status"] == "fallback" and (
+            not args.live
+            or record.get("action_result") in {"sent", "already handled by helpdesk"}
+        )
+        if (
+            record["status"] in {"processed", "already_handled"} or completed_fallback
+        ) and state_id is not None:
             handled_ids.add(state_id)
             _save_handled_ids(handled_ids)
 
@@ -332,7 +352,7 @@ def main() -> None:
         f"{'Live' if args.live else 'Dry run'} summary: "
         f"answer {counts['answer']}, escalate {counts['escalate']}, "
         f"suspicious {counts['suspicious']}, errors {counts['errors']}, "
-        f"skipped {counts['skipped']}"
+        f"skipped {counts['skipped']}, fallback {counts['fallback']}"
     )
     _print_suspicious_table(suspicious_rows)
 

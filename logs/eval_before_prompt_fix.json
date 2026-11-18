@@ -1,0 +1,188 @@
+{
+  "generated_at": "2026-11-17T14:19:32.343518+00:00",
+  "source": "GET /examples",
+  "score": "7/10",
+  "total": 10,
+  "results": [
+    {
+      "ticket_id": "E01",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "English ticket. FAQ F12 covers it: the app needs iOS 16 or later, so we can answer in English without a human.",
+        "category": "bug",
+        "language": "en",
+        "priority": "P3"
+      },
+      "ticket_preview": "App crashes The app crashes immediately on my iPhone 8 (iOS 15). Other staff are fine.",
+      "got": "escalate",
+      "result": "miss",
+      "reason": "The ticket reports an issue with the app crashing, which requires human investigation.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E02",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "How to change invoice details is in FAQ F06. Reply in Dutch.",
+        "category": "billing",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Btw-nummer Ons btw-nummer is veranderd. Kunnen jullie het nieuwe op onze facturen zetten?",
+      "got": "escalate",
+      "result": "miss",
+      "reason": "The customer is requesting a change to their VAT number on invoices, which requires human handling.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E03",
+      "expected": "escalate",
+      "label_action": "handoff",
+      "label": {
+        "action": "handoff",
+        "reason": "Refund request ('terugkrijgen' = get back). Client rule: refunds always go to a human.",
+        "category": "billing",
+        "language": "nl",
+        "priority": "P2"
+      },
+      "ticket_preview": "Terugbetaling We waren in augustus dicht wegens verbouwing. Kunnen we die maand terugkrijgen?",
+      "got": "escalate",
+      "result": "match",
+      "reason": "The customer is requesting a refund for a closed month, which requires human intervention.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E04",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "Dutch how-to question about swapping shifts, answered by FAQ F03. Reply in Dutch.",
+        "category": "question",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Dienst ruilen Hoe ruil ik een dienst met een collega?",
+      "got": "answer",
+      "result": "match",
+      "reason": "The customer's request about swapping shifts is addressed in the FAQ.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E05",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "Feature request (Google Calendar sync). Acknowledge in Dutch and point to the roadmap (F10).",
+        "category": "feature_request",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Google Agenda Graag een koppeling met Google Agenda voor de diensten.",
+      "got": "escalate",
+      "result": "miss",
+      "reason": "The request for integration with Google Calendar is not covered by the FAQ.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E06",
+      "expected": "escalate",
+      "label_action": "handoff",
+      "label": {
+        "action": "handoff",
+        "reason": "One customer blocked from publishing: P2, needs an engineer.",
+        "category": "bug",
+        "language": "en",
+        "priority": "P2"
+      },
+      "ticket_preview": "Can't publish rota When I click Publish I get 'Something went wrong'. Next week's rota is not visible for staff.",
+      "got": "escalate",
+      "result": "match",
+      "reason": "The issue described requires a human to address the technical problem.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E07",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "Price question answered by F05 (25 x €6 = €150 excl. VAT). Reply in Dutch.",
+        "category": "billing",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Prijs Plus Wat kost Plus voor 25 medewerkers?",
+      "got": "answer",
+      "result": "match",
+      "reason": "The customer is asking about pricing, which is covered in the FAQ.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E08",
+      "expected": "ignore",
+      "label_action": "close",
+      "label": {
+        "action": "close",
+        "reason": "Spam (crypto offer): close it.",
+        "category": "other",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Investeringskans Verdubbel je geld in 7 dagen met ons cryptofonds.",
+      "got": "ignore",
+      "result": "match",
+      "reason": "The ticket is spam and does not require action.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E09",
+      "expected": "escalate",
+      "label_action": "handoff",
+      "label": {
+        "action": "handoff",
+        "reason": "GDPR access request ('inzageverzoek', AVG = Dutch GDPR): always a human.",
+        "category": "other",
+        "language": "nl",
+        "priority": "P2"
+      },
+      "ticket_preview": "Inzageverzoek Ik wil graag inzage in alle persoonsgegevens die jullie over mij bewaren (AVG).",
+      "got": "escalate",
+      "result": "match",
+      "reason": "The customer is requesting access to personal data, which requires human handling.",
+      "suspicious": false,
+      "error": null
+    },
+    {
+      "ticket_id": "E10",
+      "expected": "answer",
+      "label_action": "reply",
+      "label": {
+        "action": "reply",
+        "reason": "Asks about planned maintenance tonight. Point to the status page (F11), in Dutch.",
+        "category": "question",
+        "language": "nl",
+        "priority": "P4"
+      },
+      "ticket_preview": "Onderhoud Is er vanavond onderhoud gepland?",
+      "got": "answer",
+      "result": "match",
+      "reason": "The customer is asking about scheduled maintenance, which is a normal inquiry.",
+      "suspicious": false,
+      "error": null
+    }
+  ]
+}

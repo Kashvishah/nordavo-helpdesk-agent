@@ -1,5 +1,4 @@
 .env
-logs/
 *.state
 *.state.*
 local_state/

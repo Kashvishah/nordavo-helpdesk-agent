@@ -43,3 +43,7 @@ The saved first evaluation in `logs/eval_before.json` scored 7/10. Its three mis
 ## What I would improve
 
 I would evaluate more examples in each language and category, add a confidence threshold that sends uncertain cases to a person, and build a clear human review queue. I would also replace sending the whole FAQ in every prompt with FAQ search that supplies only the most relevant entries, then compare its accuracy against the current evaluation set.
+
+## How I used AI tools
+
+I built this with OpenAI Codex as a coding assistant and an AI assistant for planning and walkthroughs. I decided the approach (triage rules, injection guard, escalation logic), ran every step myself, and tested it on the 10 labelled examples. The first eval scored 7/10; adding an explicit FAQ-matching step and switching to gpt-4.1-mini brought it to 10/10 on my run. Later reruns scored 9/10 because E02 (a Dutch VAT-number ticket) is a borderline case the model answers inconsistently. I reviewed the code and can explain and change it.

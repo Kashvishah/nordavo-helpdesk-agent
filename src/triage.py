@@ -9,10 +9,10 @@ from typing import Any
 
 from openai import APIStatusError, APITimeoutError, OpenAI
 
-from config import load_config
+from .config import PROJECT_ROOT, load_config
 
 
-_FAQ_PATH = Path(__file__).resolve().parent / "candidate_pack" / "faq.md"
+_FAQ_PATH = PROJECT_ROOT / "candidate_pack" / "faq.md"
 _MAX_RETRIES = 3
 _MAX_OUTPUT_TOKENS = 500
 _RUN_ESTIMATED_COST_EUR = 0.0

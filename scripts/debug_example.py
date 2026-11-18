@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
-from config import load_config
-from triage import _redact_secrets, triage_ticket
+from src.config import PROJECT_ROOT, load_config
+from src.triage import _redact_secrets, triage_ticket
 
 
-LABEL_FILE = Path(__file__).resolve().parent / "logs" / "eval_before.json"
+LABEL_FILE = PROJECT_ROOT / "logs" / "eval_before.json"
 EXAMPLE_ID = "E01"
 
 

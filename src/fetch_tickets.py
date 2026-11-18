@@ -3,8 +3,8 @@
 import urllib.parse
 import urllib.request
 
-from config import load_config
-from http_json import get_json
+from .config import load_config
+from .http_json import get_json
 
 
 def fetch_open_tickets(config: dict[str, str]) -> list[dict]:

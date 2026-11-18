@@ -7,3 +7,4 @@ __pycache__/
 *.py[cod]
 tickets_view.txt
 candidate_pack/
+.DS_Store

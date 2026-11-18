@@ -5,9 +5,9 @@ import json
 import urllib.parse
 import urllib.request
 
-from config import load_config
-from http_json import get_json
-from triage import triage_ticket
+from src.config import load_config
+from src.http_json import get_json
+from src.triage import triage_ticket
 
 
 def fetch_ticket(config: dict[str, str], ticket_id: str) -> dict:

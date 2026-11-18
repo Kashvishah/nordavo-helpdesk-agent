@@ -7,14 +7,20 @@ python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install openai
 cp .env.example .env
-python3 fetch_tickets.py
-python3 eval.py
-python3 run_all.py
-python3 run_all.py --live
-python3 reset_practice.py
+python3 -m src.fetch_tickets
+python3 -m src.eval
+python3 -m src.run_all
+python3 -m src.run_all --live
+python3 -m src.reset_practice
 ```
 
-`run_all.py` is a dry run unless `--live` is supplied. It also accepts `--only T001` for one ticket and `--force` to process IDs already in local state.
+`src.run_all` is a dry run unless `--live` is supplied. It also accepts `--only T001` for one ticket and `--force` to process IDs already in local state. The helper commands can be run as `python3 -m scripts.try_one T007 T012`, `python3 -m scripts.dump_tickets`, `python3 -m scripts.check_traps`, or `python3 -m scripts.debug_example`.
+
+## Project structure
+
+- `src/` contains configuration, helpdesk access, triage, run orchestration, evaluation, and practice reset.
+- `scripts/` contains one-off ticket inspection, debug, and trap-check helpers.
+- `candidate_pack/` holds the FAQ and assignment reference material; `logs/` stores run and evaluation output.
 
 ## Decisions
 

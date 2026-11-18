@@ -4,11 +4,11 @@ import time
 import urllib.request
 from pathlib import Path
 
-from config import load_config
-from http_json import request_json
+from .config import PROJECT_ROOT, load_config
+from .http_json import request_json
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = PROJECT_ROOT
 LOG_PATH = ROOT / "logs" / "run.jsonl"
 OLD_LOG_PATH = ROOT / "logs" / "run_old.jsonl"
 STATE_PATH = ROOT / "local_state" / "handled_ticket_ids.json"

@@ -8,15 +8,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from config import load_config
-from fetch_tickets import fetch_open_tickets
-from http_json import HTTPCallError, request_json
-from triage import RunCostLimitExceeded, reset_run_cost_estimate, triage_ticket
-from try_one import fetch_ticket
+from .config import PROJECT_ROOT, load_config
+from .fetch_tickets import fetch_open_tickets
+from .http_json import HTTPCallError, request_json
+from .triage import RunCostLimitExceeded, reset_run_cost_estimate, triage_ticket
+from scripts.try_one import fetch_ticket
 
 
-LOG_PATH = Path(__file__).resolve().parent / "logs" / "run.jsonl"
-STATE_PATH = Path(__file__).resolve().parent / "local_state" / "handled_ticket_ids.json"
+LOG_PATH = PROJECT_ROOT / "logs" / "run.jsonl"
+STATE_PATH = PROJECT_ROOT / "local_state" / "handled_ticket_ids.json"
 
 
 def _timestamp() -> str:

@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from config import load_config
-from http_json import get_json
-from triage import triage_ticket
+from .config import PROJECT_ROOT, load_config
+from .http_json import get_json
+from .triage import triage_ticket
 
 
-OUTPUT_PATH = Path(__file__).resolve().parent / "logs" / "eval_after.json"
+OUTPUT_PATH = PROJECT_ROOT / "logs" / "eval_after.json"
 ACTION_TO_DECISION = {
     "reply": "answer",
     "handoff": "escalate",

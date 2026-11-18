@@ -1,8 +1,8 @@
 """Check that known instruction-injection and legal-threat tickets are classified correctly."""
 
-from config import load_config
-from triage import triage_ticket
-from try_one import fetch_ticket
+from src.config import load_config
+from src.triage import triage_ticket
+from scripts.try_one import fetch_ticket
 
 
 def main() -> None:

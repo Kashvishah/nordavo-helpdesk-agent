@@ -13,11 +13,12 @@ REQUIRED_SETTINGS = (
 )
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 DEFAULT_MAX_RUN_COST_EUR = "0.5"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load_local_env() -> None:
     """Load simple KEY=VALUE entries without replacing existing environment values."""
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = PROJECT_ROOT / ".env"
     if not env_path.is_file():
         return
 

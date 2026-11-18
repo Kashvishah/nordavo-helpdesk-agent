@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from config import load_config
-from fetch_tickets import fetch_open_tickets
+from src.config import PROJECT_ROOT, load_config
+from src.fetch_tickets import fetch_open_tickets
 
 
 def main() -> None:
@@ -20,7 +20,7 @@ def main() -> None:
             f"{json.dumps(ticket, ensure_ascii=False, indent=2)}"
         )
 
-    output_path = Path(__file__).resolve().parent / "tickets_view.txt"
+    output_path = PROJECT_ROOT / "tickets_view.txt"
     output_path.write_text("\n\n".join(blocks) + ("\n" if blocks else ""), encoding="utf-8")
     print(f"Wrote {len(tickets)} tickets to {output_path.name}.")
 
